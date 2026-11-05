@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Il Gioco del 15</title>
+<style>
+  /* Cambia qui i colori per adattarli al tuo sito */
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #3fb950;   /* verde: casella vuota / successo */
+    --title: #f85149;    /* rosso: titolo */
+    --warn: #d29922;     /* giallo: "buon lavoro" */
+    --tile: #21262d;
+    --tile-hover: #2d333b;
+    --font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+
+  .wrap { width: 100%; max-width: 440px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .d1 { background: #ff5f56; } .d2 { background: #ffbd2e; } .d3 { background: #27c93f; }
+  .cmd { margin-left: 6px; }
+
+  .body { padding: 18px 18px 20px; }
+
+  h1 {
+    margin: 0 0 10px;
+    font-size: 20px;
+    color: var(--title);
+    letter-spacing: 1px;
+  }
+
+  .intro { margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: var(--muted); }
+
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  .stats strong { color: var(--accent); }
+
+  button.new {
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--tile);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  button.new:hover { background: var(--tile-hover); }
+
+  .board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: #0a0e13;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    touch-action: manipulation;
+  }
+
+  .tile {
+    position: absolute;
+    top: 0; left: 0;
+    width: 25%; height: 25%;
+    padding: 3px;
+    transition: transform .15s ease;
+  }
+  .tile button {
+    width: 100%; height: 100%;
+    font-family: var(--font);
+    font-size: clamp(20px, 7vw, 30px);
+    font-weight: 700;
+    color: var(--text);
+    background: var(--tile);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tile button:hover { background: var(--tile-hover); }
+  .tile button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .board.won .tile button { border-color: var(--accent); color: var(--accent); }
+
+  .status { min-height: 52px; margin: 14px 0 0; font-size: 14px; line-height: 1.5; }
+  .status .ok { color: var(--accent); }
+  .status .mid { color: var(--warn); }
+  .status .bad { color: var(--title); }
+
+  .hint { margin: 10px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .hint kbd {
+    font-family: var(--font);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+  }
+
+  .foot { margin-top: 14px; font-size: 12px; color: var(--muted); text-align: center; }
+  .foot a { color: var(--accent); text-decoration: none; }
+  .foot a:hover { text-decoration: underline; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="top">
+      <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+      <span class="cmd">gioco-del-15</span>
+    </div>
+    <div class="body">
+      <h1>IL GIOCO DEL 15</h1>
+      <p class="intro">
+        Una scacchiera 4x4 contiene 15 pezzi numerati da 1 a 15 e una casella vuota.
+        Ad ogni mossa puoi spostare nella casella vuota uno dei pezzi adiacenti.
+        Vinci quando i numeri sono in ordine.
+      </p>
+
+      <div class="stats">
+        <span>Mosse: <strong id="moves">0</strong></span>
+        <button class="new" id="new" type="button">Nuova partita</button>
+      </div>
+
+      <div class="board" id="board" role="group" aria-label="Scacchiera del gioco del 15"></div>
+
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+
+      <p class="hint">
+        Tocca o clicca un numero vicino alla casella vuota. Da tastiera usa
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> o le frecce: indichi la direzione
+        in cui vuoi spostare la casella vuota.
+      </p>
+    </div>
+  </div>
+
+  <p class="foot">
+    Versione web del programma in C &middot;
+    <a href="https://github.com/mauriziominieri/GiocoDelQuindici" target="_blank" rel="noopener">codice su GitHub</a>
+  </p>
+</div>
+
+<script>
+(() => {
+  const N = 4;
+  const SIZE = N * N;
+  const SHUFFLE_STEPS = 300;
+
+  const boardEl = document.getElementById("board");
+  const movesEl = document.getElementById("moves");
+  const statusEl = document.getElementById("status");
+  const newBtn = document.getElementById("new");
+
+  let board = [];     // board[i] = numero nella cella i (0 = vuota)
+  let empty = SIZE - 1;
+  let moves = 0;
+  let won = false;
+  const tileEls = {}; // numero -> elemento DOM
+
+  // Crea gli elementi una volta sola, così le mosse si animano
+  for (let n = 1; n < SIZE; n++) {
+    const wrap = document.createElement("div");
+    wrap.className = "tile";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = n;
+    btn.setAttribute("aria-label", "Tessera " + n);
+    btn.addEventListener("click", () => {
+      moveTile(board.indexOf(n));
+    });
+    wrap.appendChild(btn);
+    boardEl.appendChild(wrap);
+    tileEls[n] = wrap;
+  }
+
+  function neighbors(idx) {
+    const r = Math.floor(idx / N), c = idx % N, out = [];
+    if (r > 0) out.push(idx - N);
+    if (r < N - 1) out.push(idx + N);
+    if (c > 0) out.push(idx - 1);
+    if (c < N - 1) out.push(idx + 1);
+    return out;
+  }
+
+  function isSolved() {
+    for (let i = 0; i < SIZE - 1; i++) if (board[i] !== i + 1) return false;
+    return board[SIZE - 1] === 0;
+  }
+
+  // Si parte dalla scacchiera risolta e si fanno mosse valide casuali:
+  // la partita è quindi sempre risolvibile.
+  function shuffle() {
+    board = [];
+    for (let i = 0; i < SIZE - 1; i++) board.push(i + 1);
+    board.push(0);
+    empty = SIZE - 1;
+
+    let prev = -1;
+    for (let s = 0; s < SHUFFLE_STEPS; s++) {
+      let options = neighbors(empty).filter(i => i !== prev);
+      const pick = options[Math.floor(Math.random() * options.length)];
+      board[empty] = board[pick];
+      board[pick] = 0;
+      prev = empty;
+      empty = pick;
+    }
+    if (isSolved()) shuffle();
+  }
+
+  function render() {
+    for (let i = 0; i < SIZE; i++) {
+      const n = board[i];
+      if (n === 0) continue;
+      const r = Math.floor(i / N), c = i % N;
+      tileEls[n].style.transform = "translate(" + (c * 100) + "%," + (r * 100) + "%)";
+    }
+    movesEl.textContent = moves;
+    boardEl.classList.toggle("won", won);
+  }
+
+  function moveTile(idx) {
+    if (won || idx < 0) return;
+    if (!neighbors(empty).includes(idx)) return;
+    board[empty] = board[idx];
+    board[idx] = 0;
+    empty = idx;
+    moves++;
+    afterMove();
+  }
+
+  // dr/dc: direzione in cui si sposta la casella vuota (come nel programma in C)
+  function moveEmpty(dr, dc) {
+    if (won) return;
+    const r = Math.floor(empty / N) + dr;
+    const c = (empty % N) + dc;
+    if (r < 0 || r >= N || c < 0 || c >= N) return;
+    moveTile(r * N + c);
+  }
+
+  function afterMove() {
+    if (isSolved()) {
+      won = true;
+      showWin();
+    }
+    render();
+  }
+
+  function showWin() {
+    const label = moves === 1 ? "1 MOSSA" : moves + " MOSSE";
+    let cls, msg;
+    if (moves < 26) { cls = "ok"; msg = "OTTIMO LAVORO"; }
+    else if (moves < 51) { cls = "mid"; msg = "BUON LAVORO"; }
+    else { cls = "bad"; msg = "ALLENATI DI PIÙ"; }
+    statusEl.innerHTML =
+      "HAI VINTO IN " + label + ".<br><span class=\"" + cls + "\">" + msg + "</span>";
+  }
+
+  function newGame() {
+    shuffle();
+    moves = 0;
+    won = false;
+    statusEl.textContent = "";
+    render();
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    switch (e.key) {
+      case "w": case "W": case "ArrowUp":    moveEmpty(-1, 0); break;
+      case "s": case "S": case "ArrowDown":  moveEmpty(1, 0);  break;
+      case "a": case "A": case "ArrowLeft":  moveEmpty(0, -1); break;
+      case "d": case "D": case "ArrowRight": moveEmpty(0, 1);  break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  newBtn.addEventListener("click", newGame);
+
+  newGame();
+})();
+</script>
+</body>
+</html>
